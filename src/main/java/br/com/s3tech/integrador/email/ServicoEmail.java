@@ -83,6 +83,8 @@ public class ServicoEmail {
                     .replace("{{LINHAS_TABELA_AVISOS}}", htmlAvisos.toString())
                     .replace("{{DATA_HORA}}", LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
 
+            //Saulo criou
+
             Message message = new MimeMessage(session);
             message.setFrom(new InternetAddress(username));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(destinatarios));
