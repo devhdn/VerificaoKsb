@@ -12,15 +12,16 @@ import javax.mail.internet.*;
 
 public class ServicoEmail {
 
-    private static Properties configGeral; // Variável que vai guardar o pacote do .conf
+    private static Properties configGeral;
 
-    // Método que estava faltando!
     public static void configurar(Properties config) {
         configGeral = config;
     }
 
-    public static void enviarRelatorioDashboard(List<String[]> divergenciasComDados, String nomeArquivo, int totalProcessado, int sucessos) {
-        if (divergenciasComDados.isEmpty() || configGeral == null) return;
+    // NOVO MÉTODO UNIFICADO: Recebe erros e avisos e monta o e-mail único
+    public static void enviarRelatorioUnificado(List<String[]> divergencias, List<String[]> avisos, String nomeArquivo, int totalProcessado, int sucessos) {
+        // Só cancela o envio se não houver NENHUM erro E NENHUM aviso
+        if ((divergencias.isEmpty() && avisos.isEmpty()) || configGeral == null) return;
 
         String username = configGeral.getProperty("email.user");
         String password = configGeral.getProperty("email.password");
@@ -34,26 +35,52 @@ public class ServicoEmail {
 
         try {
             String template = carregarTemplateHtml();
-            StringBuilder linhasHtml = new StringBuilder();
 
-            for (String[] d : divergenciasComDados) {
-                linhasHtml.append("<tr>")
-                        .append("<td>").append(d.length > 0 && d[0] != null ? d[0] : "").append("</td>")
-                        .append("<td>").append(d.length > 1 && d[1] != null ? d[1] : "").append("</td>")
-                        .append("<td>").append(d.length > 2 && d[2] != null ? d[2] : "").append("</td>")
-                        .append("<td>").append(d.length > 3 && d[3] != null ? d[3] : "").append("</td>")
-                        .append("<td>").append(d.length > 4 && d[4] != null ? d[4] : "").append("</td>")
-                        .append("<td>").append(d.length > 5 && d[5] != null ? d[5] : "").append("</td>")
-                        .append("<td style=\"color: #c0392b; font-weight: bold;\">").append(d.length > 6 && d[6] != null ? d[6] : "").append("</td>")
-                        .append("</tr>");
+            // 1. Monta as linhas da tabela de BLOQUEIOS (Erros)
+            StringBuilder htmlErros = new StringBuilder();
+            if (divergencias.isEmpty()) {
+                htmlErros.append("<tr><td colspan='7' style='text-align:center;'>Nenhum bloqueio encontrado.</td></tr>");
+            } else {
+                for (String[] d : divergencias) {
+                    htmlErros.append("<tr>")
+                            .append("<td>").append(d.length > 0 && d[0] != null ? d[0] : "").append("</td>")
+                            .append("<td>").append(d.length > 1 && d[1] != null ? d[1] : "").append("</td>")
+                            .append("<td>").append(d.length > 2 && d[2] != null ? d[2] : "").append("</td>")
+                            .append("<td>").append(d.length > 3 && d[3] != null ? d[3] : "").append("</td>")
+                            .append("<td>").append(d.length > 4 && d[4] != null ? d[4] : "").append("</td>")
+                            .append("<td>").append(d.length > 5 && d[5] != null ? d[5] : "").append("</td>")
+                            .append("<td><span class='badge badge-error'>").append(d.length > 6 && d[6] != null ? d[6] : "").append("</span></td>")
+                            .append("</tr>");
+                }
             }
 
+            // 2. Monta as linhas da tabela de AVISOS DATABOOK
+            StringBuilder htmlAvisos = new StringBuilder();
+            if (avisos.isEmpty()) {
+                htmlAvisos.append("<tr><td colspan='7' style='text-align:center;'>Nenhum prazo excedido.</td></tr>");
+            } else {
+                for (String[] a : avisos) {
+                    htmlAvisos.append("<tr>")
+                            .append("<td>").append(a.length > 0 && a[0] != null ? a[0] : "").append("</td>")
+                            .append("<td>").append(a.length > 1 && a[1] != null ? a[1] : "").append("</td>")
+                            .append("<td>").append(a.length > 2 && a[2] != null ? a[2] : "").append("</td>")
+                            .append("<td>").append(a.length > 3 && a[3] != null ? a[3] : "").append("</td>")
+                            .append("<td>").append(a.length > 4 && a[4] != null ? a[4] : "").append("</td>")
+                            .append("<td>").append(a.length > 5 && a[5] != null ? a[5] : "").append("</td>")
+                            .append("<td><span class='badge badge-warning'>").append(a.length > 6 && a[6] != null ? a[6] : "").append("</span></td>")
+                            .append("</tr>");
+                }
+            }
+
+            // 3. Substitui as variáveis no seu HTML
             String htmlFinal = template
                     .replace("{{NOME_ARQUIVO}}", nomeArquivo)
                     .replace("{{TOTAL_ITENS}}", String.valueOf(totalProcessado))
                     .replace("{{SUCESSO_COUNT}}", String.valueOf(sucessos))
-                    .replace("{{ERRO_COUNT}}", String.valueOf(divergenciasComDados.size()))
-                    .replace("{{LINHAS_TABELA}}", linhasHtml.toString())
+                    .replace("{{ERRO_COUNT}}", String.valueOf(divergencias.size()))
+                    .replace("{{AVISO_COUNT}}", String.valueOf(avisos.size()))
+                    .replace("{{LINHAS_TABELA_ERROS}}", htmlErros.toString())
+                    .replace("{{LINHAS_TABELA_AVISOS}}", htmlAvisos.toString())
                     .replace("{{DATA_HORA}}", LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
 
             Message message = new MimeMessage(session);
@@ -63,7 +90,7 @@ public class ServicoEmail {
             message.setContent(htmlFinal, "text/html; charset=utf-8");
 
             Transport.send(message);
-            System.out.println("[OK] Dashboard enviado para os destinatarios.");
+            System.out.println("[OK] Dashboard unificado enviado para os destinatários.");
 
         } catch (Exception e) {
             System.err.println("[ERRO] Falha ao enviar dashboard por e-mail: " + e.getMessage());
@@ -72,7 +99,7 @@ public class ServicoEmail {
 
     private static String carregarTemplateHtml() throws IOException {
         InputStream is = ServicoEmail.class.getClassLoader().getResourceAsStream("email_template.html");
-        if (is == null) throw new FileNotFoundException("email_template.html nao encontrado na pasta resources.");
+        if (is == null) throw new FileNotFoundException("email_template.html não encontrado na pasta resources.");
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
             return reader.lines().collect(Collectors.joining(System.lineSeparator()));
         }

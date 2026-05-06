@@ -90,6 +90,7 @@
         .card-total { border-left: 5px solid var(--primary); }
         .card-success { border-left: 5px solid var(--success); }
         .card-error { border-left: 5px solid var(--error); }
+        .card-warning { border-left: 5px solid var(--warning); } /* NOVO: Card Laranja */
 
         /* Tabela Estilizada */
         .section-title {
@@ -101,7 +102,7 @@
             color: #0f172a;
         }
 
-        .section-title::before {
+        .section-title.error::before {
             content: "";
             width: 4px;
             height: 20px;
@@ -110,10 +111,20 @@
             border-radius: 4px;
         }
 
+        .section-title.warning::before {
+            content: "";
+            width: 4px;
+            height: 20px;
+            background: var(--warning);
+            margin-right: 12px;
+            border-radius: 4px;
+        }
+
         .table-container {
             overflow-x: auto;
             border-radius: 8px;
             border: 1px solid #e2e8f0;
+            margin-bottom: 30px;
         }
 
         .table {
@@ -143,15 +154,16 @@
         .table tr:last-child td { border-bottom: none; }
         .table tr:hover { background-color: #f8fafc; }
 
-        /* Badge de Divergência */
+        /* Badges de Status */
         .badge {
             padding: 4px 10px;
             border-radius: 99px;
             font-size: 11px;
             font-weight: 600;
-            background: #fee2e2;
-            color: #b91c1c;
         }
+
+        .badge-error { background: #fee2e2; color: #b91c1c; }
+        .badge-warning { background: #fef3c7; color: #b45309; }
 
         .footer {
             background-color: #f8fafc;
@@ -178,7 +190,7 @@
         <div class="dashboard">
             <div class="card card-total">
                 <span class="card-value">{{TOTAL_ITENS}}</span>
-                <span class="card-label">Itens Processados</span>
+                <span class="card-label">Itens Lidos</span>
             </div>
             <div class="card card-success">
                 <span class="card-value" style="color: var(--success);">{{SUCESSO_COUNT}}</span>
@@ -186,12 +198,15 @@
             </div>
             <div class="card card-error">
                 <span class="card-value" style="color: var(--error);">{{ERRO_COUNT}}</span>
-                <span class="card-label">Inconsistências</span>
+                <span class="card-label">Bloqueados</span>
+            </div>
+            <div class="card card-warning">
+                <span class="card-value" style="color: var(--warning);">{{AVISO_COUNT}}</span>
+                <span class="card-label">Alertas de Prazo</span>
             </div>
         </div>
 
-        <div class="section-title">Detalhamento de Divergências</div>
-
+        <div class="section-title error">Detalhamento de Divergências (Bloqueios)</div>
         <div class="table-container">
             <table class="table">
                 <thead>
@@ -202,14 +217,35 @@
                     <th>Material</th>
                     <th>Emissão OV</th>
                     <th>Reprogramada</th>
-                    <th>Status Divergência</th>
+                    <th>Motivo Bloqueio</th>
                 </tr>
                 </thead>
                 <tbody>
-                {{LINHAS_TABELA}}
+                {{LINHAS_TABELA_ERROS}}
                 </tbody>
             </table>
         </div>
+
+        <div class="section-title warning">Avisos: Prazo Databook Excedido (Atualizados no ERP)</div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Pedido HDN</th>
+                    <th>Pedido KSB</th>
+                    <th>Linha</th>
+                    <th>Material</th>
+                    <th>Emissão OV</th>
+                    <th>Reprogramada</th>
+                    <th>Alerta Databook</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{LINHAS_TABELA_AVISOS}}
+                </tbody>
+            </table>
+        </div>
+
     </div>
 
     <div class="footer">

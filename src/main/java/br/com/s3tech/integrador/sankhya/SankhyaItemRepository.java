@@ -15,11 +15,13 @@ public class SankhyaItemRepository {
         public String sequencia;
         public double valorUnitario;
         public double quantidade;
+        public String dtNeg; // NOVO CAMPO: Data de Negociação
 
-        public DadosItemSankhya(String seq, double vlr, double qtd) {
+        public DadosItemSankhya(String seq, double vlr, double qtd, String dtNeg) {
             this.sequencia = seq;
             this.valorUnitario = vlr;
             this.quantidade = qtd;
+            this.dtNeg = dtNeg;
         }
     }
 
@@ -48,6 +50,7 @@ public class SankhyaItemRepository {
         fields.add("AD_CODORIGINAL");
         fields.add("VLRUNIT");
         fields.add("QTDNEG");
+        fields.add("CabecalhoNota.DTNEG"); // BUSCANDO O CAMPO DA DATA DE NEGOCIAÇÃO
 
         JsonObject requestBody = new JsonObject();
         requestBody.addProperty("dataSetID", "00D");
@@ -55,7 +58,7 @@ public class SankhyaItemRepository {
         requestBody.addProperty("standAlone", false);
         requestBody.addProperty("orderByExpression", "SEQUENCIA");
         requestBody.add("fields", fields);
-        requestBody.addProperty("tryJoinedFields", true);
+        requestBody.addProperty("tryJoinedFields", true); // Garante que traga do CabecalhoNota
         requestBody.addProperty("crudListener", "br.com.sankhya.modelcore.comercial.ItemNotaCrudListener");
         requestBody.add("criteria", criteria);
 
@@ -91,7 +94,10 @@ public class SankhyaItemRepository {
                         double vlr = row.get(3).isJsonNull() ? 0.0 : row.get(3).getAsDouble();
                         double qtd = row.get(4).isJsonNull() ? 0.0 : row.get(4).getAsDouble();
 
-                        return new DadosItemSankhya(rowSeq, vlr, qtd);
+                        // Capturando a data de negociação
+                        String dtNeg = row.get(5).isJsonNull() ? "" : row.get(5).getAsString();
+
+                        return new DadosItemSankhya(rowSeq, vlr, qtd, dtNeg);
                     }
                 }
             }
@@ -119,9 +125,7 @@ public class SankhyaItemRepository {
         }
         String url = baseComercial + "/service.sbr?serviceName=CACSP.incluirAlterarItemNota&outputType=json&mgeSession=" + mgeSession;
 
-        // ==========================================================
-        // PASSO 1: ATUALIZAR APENAS O MOTIVO (Para enganar a trigger)
-        // ==========================================================
+        // PASSO 1: ATUALIZAR APENAS O MOTIVO
         JsonObject itemPasso1 = new JsonObject();
         itemPasso1.add("NUNOTA", createVal(notaLimpa));
         itemPasso1.add("SEQUENCIA", createVal(sequencia));
@@ -151,18 +155,12 @@ public class SankhyaItemRepository {
             throw new Exception("Erro ao salvar Motivo (Passo 1): " + msgErro);
         }
 
-        // ==========================================================
-        // PASSO 2: ATUALIZAR A DATA (DTINICIO) E A LINHA KSB
-        // ==========================================================
+        // PASSO 2: ATUALIZAR A DATA E A LINHA KSB
         JsonObject itemPasso2 = new JsonObject();
         itemPasso2.add("NUNOTA", createVal(notaLimpa));
         itemPasso2.add("SEQUENCIA", createVal(sequencia));
         itemPasso2.add("AD_LINKSB", createVal(linhaKsb));
-
-        // --- CORREÇÃO DA DATA: USANDO O CAMPO DTINICIO ---
         itemPasso2.add("DTINICIO", createVal(dtPrev));
-
-        // Mantemos também o AD_DTPREVFOR por precaução, caso ele grave nos dois
         itemPasso2.add("AD_DTPREVFOR", createVal(dtPrev));
 
         JsonObject itens2 = new JsonObject();
@@ -212,11 +210,8 @@ public class SankhyaItemRepository {
 
     public void atualizarCabecalho(String mgeSession, String jsessionId, String nuNota, String valorPedForn) throws Exception {
         String url = baseUrl + "/service.sbr?serviceName=CRUDServiceProvider.saveRecord&outputType=json&mgeSession=" + mgeSession;
-
-        // Usa o método que já existe para garantir que o número da nota está perfeitamente limpo (sem .0 ou letras)
         String notaLimpa = limparNumeroNota(nuNota);
 
-        // Monta o JSON (Payload) na estrutura estrita exigida pelo Sankhya para um UPDATE (Atualização)
         String payload = "{\n" +
                 "  \"serviceName\": \"CRUDServiceProvider.saveRecord\",\n" +
                 "  \"requestBody\": {\n" +
@@ -242,9 +237,49 @@ public class SankhyaItemRepository {
 
         String resposta = http.post(url, jsessionId, payload);
 
-        // Verifica se o Sankhya retornou erro (status = 0)
         if (resposta.contains("\"status\":\"0\"") || resposta.contains("status=\"0\"")) {
             throw new Exception(resposta);
+        }
+    }
+
+    // NOVO MÉTODO PARA BUSCAR O AD_DTBKKS UTILIZANDO GSON
+    public int buscarDiasDatabook(String mgeSession, String jsessionId, String codProd) throws Exception {
+        String url = baseUrl + "/service.sbr?serviceName=DatasetSP.loadRecords&outputType=json&mgeSession=" + mgeSession;
+
+        JsonObject criteria = new JsonObject();
+        criteria.addProperty("expression", "this.CODPROD = ?");
+        JsonArray params = new JsonArray();
+        JsonObject p = new JsonObject();
+        p.addProperty("$", codProd);
+        p.addProperty("type", "I");
+        params.add(p);
+        criteria.add("parameters", params);
+
+        JsonObject requestBody = new JsonObject();
+        requestBody.addProperty("dataSetID", "02L");
+        requestBody.addProperty("entityName", "Produto");
+
+        JsonArray fields = new JsonArray();
+        fields.add("CODPROD");
+        fields.add("AD_DTBKKS");
+        requestBody.add("fields", fields);
+
+        requestBody.add("criteria", criteria);
+
+        JsonObject payload = new JsonObject();
+        payload.addProperty("serviceName", "DatasetSP.loadRecords");
+        payload.add("requestBody", requestBody);
+
+        String resp = http.post(url, jsessionId, payload.toString());
+        JsonObject json = JsonParser.parseString(resp).getAsJsonObject();
+
+        try {
+            // Navega pelo JSON para extrair o campo f1 (AD_DTBKKS) da primeira linha retornada
+            return json.getAsJsonObject("responseBody")
+                    .getAsJsonArray("result").get(0).getAsJsonArray()
+                    .get(1).getAsInt();
+        } catch (Exception e) {
+            return 0; // Caso o campo não exista ou esteja nulo para este produto
         }
     }
 }

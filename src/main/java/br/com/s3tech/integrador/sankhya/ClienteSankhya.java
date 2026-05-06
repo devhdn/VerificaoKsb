@@ -15,7 +15,7 @@ public class ClienteSankhya {
         String usuario = config.getProperty("sankhya.usuario");
         String senha = config.getProperty("sankhya.senha");
 
-        ServicoEmail.configurar(config); // Injeta as configs no serviço de e-mail
+        ServicoEmail.configurar(config);
 
         this.httpService = new SankhyaHttpService();
         this.sessionManager = new SankhyaSessionManager(this.baseUrl, usuario, senha);
@@ -24,11 +24,12 @@ public class ClienteSankhya {
 
     public boolean verificarEAtualizarDados(List<String[]> dados, String nomeArquivo) {
         List<String[]> listaDivergencias = new ArrayList<>();
+        List<String[]> listaAvisosDatabook = new ArrayList<>(); // LISTA DOS AVISOS
         int atualizados = 0;
         int totalUteis = 0;
 
         try {
-            sessionManager.getSessionTokens(); // Garante token inicial válido
+            sessionManager.getSessionTokens();
 
             for (String[] linha : dados) {
                 if (isLinhaInvalida(linha)) continue;
@@ -39,7 +40,6 @@ public class ClienteSankhya {
                 System.out.print("[INFO] Analisando Pedido " + nuNota + " | Mat " + codProd + "... ");
 
                 try {
-                    // 1. Busca os dados no ERP (com reconexão automática se cair)
                     SankhyaItemRepository.DadosItemSankhya item = buscarItemComRetry(nuNota, codProd);
 
                     if (item == null) {
@@ -48,15 +48,23 @@ public class ClienteSankhya {
                         continue;
                     }
 
-                    // 2. Trava Financeira (Qtd e Preço)
+                    // VALIDAÇÃO DATABOOK (APENAS AVISA, NÃO BLOQUEIA)
+                    int diasDatabook = buscarDatabookComRetry(codProd);
+                    String avisoDatabook = verificarRegraDatabook(item, linha, diasDatabook);
+                    if (avisoDatabook != null) {
+                        System.out.println("-> AVISO DATABOOK (Será notificado)");
+                        registrarDivergencia(listaAvisosDatabook, linha, avisoDatabook); // Joga na lista amarela
+                    }
+
+                    // TRAVA FINANCEIRA (BLOQUEIA SE DER ERRO)
                     String erroTrava = verificarTravaFinanceira(item, linha);
                     if (erroTrava != null) {
                         System.out.println("-> BLOQUEADO PELA TRAVA FINANCEIRA!");
-                        registrarDivergencia(listaDivergencias, linha, "[ATUALIZAÇÃO BLOQUEADA] " + erroTrava);
+                        registrarDivergencia(listaDivergencias, linha, "[ATUALIZAÇÃO BLOQUEADA] " + erroTrava); // Joga na lista vermelha
                         continue;
                     }
 
-                    // 3. Salva no Sankhya
+                    // SALVA NO ERP
                     atualizarItemComRetry(item, linha, nomeArquivo);
                     atualizados++;
                     System.out.println("OK!");
@@ -72,7 +80,8 @@ public class ClienteSankhya {
                 }
             }
 
-            ServicoEmail.enviarRelatorioDashboard(listaDivergencias, nomeArquivo, totalUteis, atualizados);
+            // CHAMA O NOVO MÉTODO UNIFICADO DE E-MAIL PASSANDO AS DUAS LISTAS
+            ServicoEmail.enviarRelatorioUnificado(listaDivergencias, listaAvisosDatabook, nomeArquivo, totalUteis, atualizados);
             return true;
 
         } catch (Exception e) {
@@ -82,7 +91,7 @@ public class ClienteSankhya {
     }
 
     // ========================================================================
-    // MÉTODOS AUXILIARES (Deixam o método principal menor e mais limpo)
+    // MÉTODOS AUXILIARES
     // ========================================================================
 
     private SankhyaItemRepository.DadosItemSankhya buscarItemComRetry(String nuNota, String codProd) throws Exception {
@@ -103,27 +112,19 @@ public class ClienteSankhya {
         String linhaKSB = linha[4].trim();
         String dtReprog = formatarData(linha[7].trim());
         String motivoEstatico = "Verificação KSB " + nomeArquivo;
-
-        // AQUI: Capturamos o valor da planilha (Se for o "Documentos de Vendas", mude para linha[3])
         String valorCabecalho = linha[3].trim();
 
         try {
-            // 1. Atualiza os itens da nota (TGFITE) - Já existia
             repository.atualizarCampos(sessionManager.getMgeSession(), sessionManager.getJsessionId(), nuNota, item.sequencia, linhaKSB, dtReprog, motivoEstatico);
-
-            // 2. NOVO: Atualiza o cabeçalho da nota (TGFCAB) com o Pedido do Fornecedor
             repository.atualizarCabecalho(sessionManager.getMgeSession(), sessionManager.getJsessionId(), nuNota, valorCabecalho);
-
         } catch (Exception e) {
             if (isErroSessao(e)) {
                 System.out.print("[Reconectando...] ");
                 sessionManager.refreshSession();
-
-                // Tenta novamente após renovar o token
                 repository.atualizarCampos(sessionManager.getMgeSession(), sessionManager.getJsessionId(), nuNota, item.sequencia, linhaKSB, dtReprog, motivoEstatico);
                 repository.atualizarCabecalho(sessionManager.getMgeSession(), sessionManager.getJsessionId(), nuNota, valorCabecalho);
             } else {
-                throw e; // Se não for erro de sessão, repassa o erro para ir para o painel de divergências
+                throw e;
             }
         }
     }
@@ -147,13 +148,13 @@ public class ClienteSankhya {
 
     private void registrarDivergencia(List<String[]> lista, String[] linha, String mensagem) {
         lista.add(new String[]{
-                linha[5].trim(), // nuNota
-                linha[3].trim(), // pedidoKSB
-                linha[4].trim(), // linhaKSB
-                linha[10].trim(), // descricaoMat
-                formatarData(linha[6].trim()), // emissaoOV
-                formatarData(linha[7].trim()), // dtReprog
-                mensagem // motivo
+                linha[5].trim(),
+                linha[3].trim(),
+                linha[4].trim(),
+                linha[10].trim(),
+                formatarData(linha[6].trim()),
+                formatarData(linha[7].trim()),
+                mensagem
         });
     }
 
@@ -175,44 +176,32 @@ public class ClienteSankhya {
             if (dataStr == null || dataStr.trim().isEmpty()) return "";
             dataStr = dataStr.trim();
 
-            // 1. NOVO: Identifica formato Internacional de Base de Dados (ex: 2026-05-15)
             if (dataStr.matches("^\\d{4}-\\d{2}-\\d{2}$")) {
                 String[] partes = dataStr.split("-");
-                // Inverte de YYYY-MM-DD para DD/MM/YYYY
                 return partes[2] + "/" + partes[1] + "/" + partes[0];
             }
 
-            // 2. Identifica se é um número serial do Excel (ex: 46128, 46128.0)
             if (dataStr.matches("^\\d+([.,]\\d+)?$")) {
                 double dias = Double.parseDouble(dataStr.replace(",", "."));
                 Calendar cal = Calendar.getInstance();
-                cal.set(1899, Calendar.DECEMBER, 30); // Base do Excel
+                cal.set(1899, Calendar.DECEMBER, 30);
                 cal.add(Calendar.DATE, (int) dias);
                 return new SimpleDateFormat("dd/MM/yyyy").format(cal.getTime());
             }
 
-            // 3. Trata datas normais (DD/MM/YY ou DD-MM-YY)
             dataStr = dataStr.replace("-", "/");
             if (dataStr.contains("/")) {
                 String[] partes = dataStr.split("/");
                 if (partes.length == 3) {
-                    // Se o ano tiver apenas 2 dígitos (ex: 26)
                     if (partes[2].length() == 2) {
                         int ano = Integer.parseInt(partes[2]);
                         String anoCorrigido = (ano > 50 ? "19" : "20") + String.format("%02d", ano);
-                        return String.format("%02d/%02d/%s",
-                                Integer.parseInt(partes[0]),
-                                Integer.parseInt(partes[1]),
-                                anoCorrigido);
+                        return String.format("%02d/%02d/%s", Integer.parseInt(partes[0]), Integer.parseInt(partes[1]), anoCorrigido);
                     }
                 }
             }
-
-            // 4. Se já for uma data normal (DD/MM/YYYY), só retorna
             return dataStr;
-
         } catch (Exception e) {
-            // Em caso de falha, devolve como veio para não travar o robô
             return dataStr;
         }
     }
@@ -228,5 +217,42 @@ public class ClienteSankhya {
             }
             return Double.parseDouble(limpo);
         } catch (Exception e) { return 0.0; }
+    }
+
+    private String verificarRegraDatabook(SankhyaItemRepository.DadosItemSankhya item, String[] linha, int diasDatabook) {
+        try {
+            String dtVerificacaoStr = formatarData(linha[7].trim());
+
+            if (item.dtNeg == null || item.dtNeg.isEmpty() || dtVerificacaoStr == null || dtVerificacaoStr.isEmpty()) {
+                return null;
+            }
+
+            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+            Date dtNeg = sdf.parse(item.dtNeg);
+            Date dtVerificacao = sdf.parse(dtVerificacaoStr);
+
+            // CORREÇÃO: DTVERIFICACAO (MAIOR/FUTURO) MENOS DTNEG (MENOR/PASSADO)
+            long diffEmMilissegundos = dtVerificacao.getTime() - dtNeg.getTime();
+            long diferencaDias = diffEmMilissegundos / (1000 * 60 * 60 * 24);
+
+            if (diferencaDias > diasDatabook) {
+                return String.format("Prazo excedido! Diferença = %d dias (Permitido: %d dias).", diferencaDias, diasDatabook);
+            }
+            return null;
+        } catch (Exception e) {
+            return "Erro ao calcular datas: " + e.getMessage();
+        }
+    }
+
+    private int buscarDatabookComRetry(String codProd) throws Exception {
+        try {
+            return repository.buscarDiasDatabook(sessionManager.getMgeSession(), sessionManager.getJsessionId(), codProd);
+        } catch (Exception e) {
+            if (isErroSessao(e)) {
+                sessionManager.refreshSession();
+                return repository.buscarDiasDatabook(sessionManager.getMgeSession(), sessionManager.getJsessionId(), codProd);
+            }
+            throw e;
+        }
     }
 }
