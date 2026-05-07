@@ -15,13 +15,15 @@ public class SankhyaItemRepository {
         public String sequencia;
         public double valorUnitario;
         public double quantidade;
-        public String dtNeg; // NOVO CAMPO: Data de Negociação
+        public String dtNeg;
+        public String codProdReal;
 
-        public DadosItemSankhya(String seq, double vlr, double qtd, String dtNeg) {
+        public DadosItemSankhya(String seq, double vlr, double qtd, String dtNeg, String codProdReal) {
             this.sequencia = seq;
             this.valorUnitario = vlr;
             this.quantidade = qtd;
             this.dtNeg = dtNeg;
+            this.codProdReal = codProdReal;
         }
     }
 
@@ -97,7 +99,7 @@ public class SankhyaItemRepository {
                         // Capturando a data de negociação
                         String dtNeg = row.get(5).isJsonNull() ? "" : row.get(5).getAsString();
 
-                        return new DadosItemSankhya(rowSeq, vlr, qtd, dtNeg);
+                        return new DadosItemSankhya(rowSeq, vlr, qtd, dtNeg, rowCodProd);
                     }
                 }
             }
@@ -248,22 +250,23 @@ public class SankhyaItemRepository {
 
         JsonObject criteria = new JsonObject();
         criteria.addProperty("expression", "this.CODPROD = ?");
+
         JsonArray params = new JsonArray();
         JsonObject p = new JsonObject();
-        p.addProperty("$", codProd);
+        // Mudança Crítica: Usar "value" em vez de "$" para garantir compatibilidade
         p.addProperty("type", "I");
+        p.addProperty("value", Integer.parseInt(codProd));
         params.add(p);
         criteria.add("parameters", params);
 
         JsonObject requestBody = new JsonObject();
-        requestBody.addProperty("dataSetID", "02L");
+        requestBody.addProperty("dataSetID", "02L"); // Dataset da TGFPRO
         requestBody.addProperty("entityName", "Produto");
 
         JsonArray fields = new JsonArray();
         fields.add("CODPROD");
         fields.add("AD_DTBKKS");
         requestBody.add("fields", fields);
-
         requestBody.add("criteria", criteria);
 
         JsonObject payload = new JsonObject();
@@ -274,12 +277,22 @@ public class SankhyaItemRepository {
         JsonObject json = JsonParser.parseString(resp).getAsJsonObject();
 
         try {
-            // Navega pelo JSON para extrair o campo f1 (AD_DTBKKS) da primeira linha retornada
-            return json.getAsJsonObject("responseBody")
-                    .getAsJsonArray("result").get(0).getAsJsonArray()
-                    .get(1).getAsInt();
+            JsonObject responseBody = json.getAsJsonObject("responseBody");
+            if (responseBody != null && responseBody.has("result")) {
+                JsonArray rows = responseBody.getAsJsonArray("result");
+                if (rows.size() > 0) {
+                    JsonArray firstRow = rows.get(0).getAsJsonArray();
+                    JsonElement valorDtbk = firstRow.get(1); // Coluna AD_DTBKKS
+
+                    if (!valorDtbk.isJsonNull()) {
+                        return valorDtbk.getAsInt();
+                    }
+                }
+            }
+            return 0;
         } catch (Exception e) {
-            return 0; // Caso o campo não exista ou esteja nulo para este produto
+            // Se houver erro na leitura do JSON, retorna 0
+            return 0;
         }
     }
 }

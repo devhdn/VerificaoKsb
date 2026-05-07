@@ -24,7 +24,7 @@ public class ClienteSankhya {
 
     public boolean verificarEAtualizarDados(List<String[]> dados, String nomeArquivo) {
         List<String[]> listaDivergencias = new ArrayList<>();
-        List<String[]> listaAvisosDatabook = new ArrayList<>(); // LISTA DOS AVISOS
+        List<String[]> listaAvisosDatabook = new ArrayList<>();
         int atualizados = 0;
         int totalUteis = 0;
 
@@ -39,28 +39,31 @@ public class ClienteSankhya {
                 String codProd = linha[9].trim();
                 System.out.print("[INFO] Analisando Pedido " + nuNota + " | Mat " + codProd + "... ");
 
+                // Variável declarada aqui para ser vista pelo Catch
+                SankhyaItemRepository.DadosItemSankhya item = null;
+
                 try {
-                    SankhyaItemRepository.DadosItemSankhya item = buscarItemComRetry(nuNota, codProd);
+                    item = buscarItemComRetry(nuNota, codProd);
 
                     if (item == null) {
                         System.out.println("NÃO LOCALIZADO NO ERP!");
-                        registrarDivergencia(listaDivergencias, linha, "Item não encontrado no pedido Sankhya.");
+                        registrarDivergencia(listaDivergencias, linha, "Item não encontrado no pedido Sankhya.", "N/A");
                         continue;
                     }
 
-                    // VALIDAÇÃO DATABOOK (APENAS AVISA, NÃO BLOQUEIA)
-                    int diasDatabook = buscarDatabookComRetry(codProd);
+                    // VALIDAÇÃO DATABOOK
+                    int diasDatabook = buscarDatabookComRetry(item.codProdReal);
                     String avisoDatabook = verificarRegraDatabook(item, linha, diasDatabook);
                     if (avisoDatabook != null) {
                         System.out.println("-> AVISO DATABOOK (Será notificado)");
-                        registrarDivergencia(listaAvisosDatabook, linha, avisoDatabook); // Joga na lista amarela
+                        registrarDivergencia(listaAvisosDatabook, linha, avisoDatabook, item.codProdReal);
                     }
 
-                    // TRAVA FINANCEIRA (BLOQUEIA SE DER ERRO)
+                    // TRAVA FINANCEIRA
                     String erroTrava = verificarTravaFinanceira(item, linha);
                     if (erroTrava != null) {
                         System.out.println("-> BLOQUEADO PELA TRAVA FINANCEIRA!");
-                        registrarDivergencia(listaDivergencias, linha, "[ATUALIZAÇÃO BLOQUEADA] " + erroTrava); // Joga na lista vermelha
+                        registrarDivergencia(listaDivergencias, linha, "[ATUALIZAÇÃO BLOQUEADA] " + erroTrava, item.codProdReal);
                         continue;
                     }
 
@@ -75,12 +78,12 @@ public class ClienteSankhya {
                         System.out.println("IGNORADO (Já Entregue/Faturado)");
                     } else {
                         System.out.println("ERRO: " + erroLimpo);
-                        registrarDivergencia(listaDivergencias, linha, erroLimpo);
+                        String codParaErro = (item != null && item.codProdReal != null) ? item.codProdReal : "N/A";
+                        registrarDivergencia(listaDivergencias, linha, erroLimpo, codParaErro);
                     }
                 }
-            }
+            } // Fim do For
 
-            // CHAMA O NOVO MÉTODO UNIFICADO DE E-MAIL PASSANDO AS DUAS LISTAS
             ServicoEmail.enviarRelatorioUnificado(listaDivergencias, listaAvisosDatabook, nomeArquivo, totalUteis, atualizados);
             return true;
 
@@ -146,12 +149,16 @@ public class ClienteSankhya {
         return motivo.length() > 0 ? motivo.toString().trim() : null;
     }
 
-    private void registrarDivergencia(List<String[]> lista, String[] linha, String mensagem) {
+    private void registrarDivergencia(List<String[]> lista, String[] linha, String mensagem, String codSankhya) {
         lista.add(new String[]{
                 linha[5].trim(),
                 linha[3].trim(),
                 linha[4].trim(),
+                linha[9].trim(),
+                codSankhya != null ? codSankhya : "N/A",
                 linha[10].trim(),
+                linha[8].trim(),
+                linha[14].trim(),
                 formatarData(linha[6].trim()),
                 formatarData(linha[7].trim()),
                 mensagem
@@ -231,7 +238,6 @@ public class ClienteSankhya {
             Date dtNeg = sdf.parse(item.dtNeg);
             Date dtVerificacao = sdf.parse(dtVerificacaoStr);
 
-            // CORREÇÃO: DTVERIFICACAO (MAIOR/FUTURO) MENOS DTNEG (MENOR/PASSADO)
             long diffEmMilissegundos = dtVerificacao.getTime() - dtNeg.getTime();
             long diferencaDias = diffEmMilissegundos / (1000 * 60 * 60 * 24);
 
@@ -244,13 +250,14 @@ public class ClienteSankhya {
         }
     }
 
-    private int buscarDatabookComRetry(String codProd) throws Exception {
+    private int buscarDatabookComRetry(String codProdReal) throws Exception {
         try {
-            return repository.buscarDiasDatabook(sessionManager.getMgeSession(), sessionManager.getJsessionId(), codProd);
+            if (codProdReal == null || codProdReal.isEmpty()) return 0;
+            return repository.buscarDiasDatabook(sessionManager.getMgeSession(), sessionManager.getJsessionId(), codProdReal);
         } catch (Exception e) {
             if (isErroSessao(e)) {
                 sessionManager.refreshSession();
-                return repository.buscarDiasDatabook(sessionManager.getMgeSession(), sessionManager.getJsessionId(), codProd);
+                return repository.buscarDiasDatabook(sessionManager.getMgeSession(), sessionManager.getJsessionId(), codProdReal);
             }
             throw e;
         }

@@ -7,6 +7,8 @@ import com.google.api.services.drive.DriveScopes;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Collections;
 
@@ -14,26 +16,26 @@ public class GoogleDriveService {
     private static final String APPLICATION_NAME = "Integrador HDN KSB";
 
     /**
-     * Método responsável por ler o credentials.json e autenticar o robô no Google Drive.
+     * Agora o método recebe o caminho externo do JSON
      */
-    public static Drive getService() throws Exception {
-        // Busca o arquivo JSON dentro da pasta src/main/resources
-        InputStream in = GoogleDriveService.class.getResourceAsStream("/credentials.json");
+    public static Drive getService(String caminhoJson) throws Exception {
+        java.io.File file = new java.io.File(caminhoJson);
 
-        if (in == null) {
-            throw new RuntimeException("Arquivo credentials.json nao encontrado na pasta resources!");
+        if (!file.exists()) {
+            throw new RuntimeException("Arquivo credentials.json não encontrado em: " + caminhoJson);
         }
 
-        // Cria as credenciais com permissão total ao Drive
-        GoogleCredentials credentials = GoogleCredentials.fromStream(in)
-                .createScoped(Collections.singleton(DriveScopes.DRIVE));
+        // Usa FileInputStream para ler o arquivo fora do JAR
+        try (java.io.InputStream in = new java.io.FileInputStream(file)) {
+            GoogleCredentials credentials = GoogleCredentials.fromStream(in)
+                    .createScoped(Collections.singleton(DriveScopes.DRIVE));
 
-        // Constrói e retorna o serviço do Drive
-        return new Drive.Builder(
-                GoogleNetHttpTransport.newTrustedTransport(),
-                GsonFactory.getDefaultInstance(),
-                new HttpCredentialsAdapter(credentials))
-                .setApplicationName(APPLICATION_NAME)
-                .build();
+            return new Drive.Builder(
+                    GoogleNetHttpTransport.newTrustedTransport(),
+                    GsonFactory.getDefaultInstance(),
+                    new HttpCredentialsAdapter(credentials))
+                    .setApplicationName(APPLICATION_NAME)
+                    .build();
+        }
     }
 }

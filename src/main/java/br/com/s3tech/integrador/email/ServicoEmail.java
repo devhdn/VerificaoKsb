@@ -18,9 +18,7 @@ public class ServicoEmail {
         configGeral = config;
     }
 
-    // NOVO MÉTODO UNIFICADO: Recebe erros e avisos e monta o e-mail único
     public static void enviarRelatorioUnificado(List<String[]> divergencias, List<String[]> avisos, String nomeArquivo, int totalProcessado, int sucessos) {
-        // Só cancela o envio se não houver NENHUM erro E NENHUM aviso
         if ((divergencias.isEmpty() && avisos.isEmpty()) || configGeral == null) return;
 
         String username = configGeral.getProperty("email.user");
@@ -36,43 +34,50 @@ public class ServicoEmail {
         try {
             String template = carregarTemplateHtml();
 
-            // 1. Monta as linhas da tabela de BLOQUEIOS (Erros)
+            // 1. Monta as linhas da tabela de BLOQUEIOS (11 colunas)
             StringBuilder htmlErros = new StringBuilder();
             if (divergencias.isEmpty()) {
-                htmlErros.append("<tr><td colspan='7' style='text-align:center;'>Nenhum bloqueio encontrado.</td></tr>");
+                htmlErros.append("<tr><td colspan='11' style='text-align:center;'>Nenhum bloqueio encontrado.</td></tr>");
             } else {
                 for (String[] d : divergencias) {
                     htmlErros.append("<tr>")
-                            .append("<td>").append(d.length > 0 && d[0] != null ? d[0] : "").append("</td>")
-                            .append("<td>").append(d.length > 1 && d[1] != null ? d[1] : "").append("</td>")
-                            .append("<td>").append(d.length > 2 && d[2] != null ? d[2] : "").append("</td>")
-                            .append("<td>").append(d.length > 3 && d[3] != null ? d[3] : "").append("</td>")
-                            .append("<td>").append(d.length > 4 && d[4] != null ? d[4] : "").append("</td>")
-                            .append("<td>").append(d.length > 5 && d[5] != null ? d[5] : "").append("</td>")
-                            .append("<td><span class='badge badge-error'>").append(d.length > 6 && d[6] != null ? d[6] : "").append("</span></td>")
+                            .append("<td class='nowrap'>").append(d[0]).append("</td>") // Ped HDN
+                            .append("<td class='nowrap'>").append(d[1]).append("</td>") // Ped KSB
+                            .append("<td class='nowrap'>").append(d[2]).append("</td>") // Linha
+                            .append("<td class='nowrap'>").append(d[3]).append("</td>") // Referência
+                            .append("<td class='nowrap'><strong>").append(d[4]).append("</strong></td>") // Cód. Sankhya (Interno)
+                            .append("<td>").append(d[5]).append("</td>")               // Material
+                            .append("<td class='nowrap'>").append(d[6]).append("</td>") // Qtd
+                            .append("<td class='nowrap'>").append(d[7]).append("</td>") // Vlr Unit
+                            .append("<td class='nowrap'>").append(d[8]).append("</td>") // Emissão
+                            .append("<td class='nowrap'>").append(d[9]).append("</td>") // Reprogramada
+                            .append("<td><span class='badge badge-error'>").append(d[10]).append("</span></td>") // Motivo
                             .append("</tr>");
                 }
             }
 
-            // 2. Monta as linhas da tabela de AVISOS DATABOOK
+            // 2. Monta as linhas da tabela de AVISOS DATABOOK (11 colunas)
             StringBuilder htmlAvisos = new StringBuilder();
             if (avisos.isEmpty()) {
-                htmlAvisos.append("<tr><td colspan='7' style='text-align:center;'>Nenhum prazo excedido.</td></tr>");
+                htmlAvisos.append("<tr><td colspan='11' style='text-align:center;'>Nenhum alerta de databook.</td></tr>");
             } else {
                 for (String[] a : avisos) {
                     htmlAvisos.append("<tr>")
-                            .append("<td>").append(a.length > 0 && a[0] != null ? a[0] : "").append("</td>")
-                            .append("<td>").append(a.length > 1 && a[1] != null ? a[1] : "").append("</td>")
-                            .append("<td>").append(a.length > 2 && a[2] != null ? a[2] : "").append("</td>")
-                            .append("<td>").append(a.length > 3 && a[3] != null ? a[3] : "").append("</td>")
-                            .append("<td>").append(a.length > 4 && a[4] != null ? a[4] : "").append("</td>")
-                            .append("<td>").append(a.length > 5 && a[5] != null ? a[5] : "").append("</td>")
-                            .append("<td><span class='badge badge-warning'>").append(a.length > 6 && a[6] != null ? a[6] : "").append("</span></td>")
+                            .append("<td class='nowrap'>").append(a[0]).append("</td>")
+                            .append("<td class='nowrap'>").append(a[1]).append("</td>")
+                            .append("<td class='nowrap'>").append(a[2]).append("</td>")
+                            .append("<td class='nowrap'>").append(a[3]).append("</td>")
+                            .append("<td class='nowrap'><strong>").append(a[4]).append("</strong></td>") // Cód. Sankhya (Interno)
+                            .append("<td>").append(a[5]).append("</td>")
+                            .append("<td class='nowrap'>").append(a[6]).append("</td>")
+                            .append("<td class='nowrap'>").append(a[7]).append("</td>")
+                            .append("<td class='nowrap'>").append(a[8]).append("</td>")
+                            .append("<td class='nowrap'>").append(a[9]).append("</td>")
+                            .append("<td><span class='badge badge-warning'>").append(a[10]).append("</span></td>")
                             .append("</tr>");
                 }
             }
 
-            // 3. Substitui as variáveis no seu HTML
             String htmlFinal = template
                     .replace("{{NOME_ARQUIVO}}", nomeArquivo)
                     .replace("{{TOTAL_ITENS}}", String.valueOf(totalProcessado))
@@ -83,8 +88,6 @@ public class ServicoEmail {
                     .replace("{{LINHAS_TABELA_AVISOS}}", htmlAvisos.toString())
                     .replace("{{DATA_HORA}}", LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
 
-            //Saulo criou
-
             Message message = new MimeMessage(session);
             message.setFrom(new InternetAddress(username));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(destinatarios));
@@ -92,16 +95,16 @@ public class ServicoEmail {
             message.setContent(htmlFinal, "text/html; charset=utf-8");
 
             Transport.send(message);
-            System.out.println("[OK] Dashboard unificado enviado para os destinatários.");
+            System.out.println("[OK] Dashboard unificado enviado com todas as colunas.");
 
         } catch (Exception e) {
-            System.err.println("[ERRO] Falha ao enviar dashboard por e-mail: " + e.getMessage());
+            System.err.println("[ERRO] Falha ao enviar dashboard: " + e.getMessage());
         }
     }
 
     private static String carregarTemplateHtml() throws IOException {
         InputStream is = ServicoEmail.class.getClassLoader().getResourceAsStream("email_template.html");
-        if (is == null) throw new FileNotFoundException("email_template.html não encontrado na pasta resources.");
+        if (is == null) throw new FileNotFoundException("email_template.html não encontrado.");
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
             return reader.lines().collect(Collectors.joining(System.lineSeparator()));
         }

@@ -20,9 +20,10 @@ public class MonitorPastas {
     private final LeitorExcelCsv leitor = new LeitorExcelCsv();
     private final ClienteSankhya clienteSankhya;
     private Drive drive;
+    private final String caminhoCredentials;
 
     // Construtor recebe o pacote completo de configurações lido do .conf
-    public MonitorPastas(Properties config) {
+    public MonitorPastas(Properties config, String caminhoCredentials) {
         this.idPendentes = config.getProperty("drive.pendentes");
         this.idFeitas = config.getProperty("drive.feitas");
         this.idErros = config.getProperty("drive.erros");
@@ -30,6 +31,7 @@ public class MonitorPastas {
 
         // Repassa o pacote de propriedades para o Sankhya/Email se virar com o resto
         this.clienteSankhya = new ClienteSankhya(config);
+        this.caminhoCredentials = caminhoCredentials;
     }
 
     public void iniciarMonitorizacao() {
@@ -37,7 +39,7 @@ public class MonitorPastas {
 
         while (true) {
             try {
-                if (drive == null) drive = GoogleDriveService.getService();
+                if (drive == null) drive = GoogleDriveService.getService(caminhoCredentials);
 
                 // Busca arquivos na pasta "pendentes"
                 FileList result = drive.files().list()

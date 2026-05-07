@@ -25,7 +25,7 @@
         }
 
         .container {
-            max-width: 1100px;
+            max-width: 1200px;
             margin: 0 auto;
             background: var(--white);
             border-radius: 16px;
@@ -33,7 +33,6 @@
             box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05);
         }
 
-        /* Header Modernizado */
         .header {
             background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
             color: white;
@@ -42,22 +41,10 @@
             position: relative;
         }
 
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: -0.025em;
-        }
-
-        .header p {
-            margin: 8px 0 0;
-            opacity: 0.8;
-            font-size: 14px;
-        }
-
+        .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
+        .header p { margin: 8px 0 0; opacity: 0.8; font-size: 14px; }
         .content { padding: 30px; }
 
-        /* Dashboard de Cards */
         .dashboard {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -65,60 +52,18 @@
             margin-bottom: 40px;
         }
 
-        .card {
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            transition: transform 0.2s;
-        }
-
-        .card-value {
-            font-size: 28px;
-            font-weight: 800;
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        .card-label {
-            font-size: 12px;
-            text-transform: uppercase;
-            font-weight: 600;
-            color: var(--text-muted);
-            letter-spacing: 0.05em;
-        }
+        .card { padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .card-value { font-size: 28px; font-weight: 800; display: block; margin-bottom: 4px; }
+        .card-label { font-size: 12px; text-transform: uppercase; font-weight: 600; color: var(--text-muted); letter-spacing: 0.05em; }
 
         .card-total { border-left: 5px solid var(--primary); }
         .card-success { border-left: 5px solid var(--success); }
         .card-error { border-left: 5px solid var(--error); }
-        .card-warning { border-left: 5px solid var(--warning); } /* NOVO: Card Laranja */
+        .card-warning { border-left: 5px solid var(--warning); }
 
-        /* Tabela Estilizada */
-        .section-title {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            color: #0f172a;
-        }
-
-        .section-title.error::before {
-            content: "";
-            width: 4px;
-            height: 20px;
-            background: var(--error);
-            margin-right: 12px;
-            border-radius: 4px;
-        }
-
-        .section-title.warning::before {
-            content: "";
-            width: 4px;
-            height: 20px;
-            background: var(--warning);
-            margin-right: 12px;
-            border-radius: 4px;
-        }
+        .section-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; color: #0f172a; }
+        .section-title.error::before { content: ""; width: 4px; height: 20px; background: var(--error); margin-right: 12px; border-radius: 4px; }
+        .section-title.warning::before { content: ""; width: 4px; height: 20px; background: var(--warning); margin-right: 12px; border-radius: 4px; }
 
         .table-container {
             overflow-x: auto;
@@ -127,63 +72,34 @@
             margin-bottom: 30px;
         }
 
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
+        .table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+        .table th {
+            background-color: #f1f5f9; color: #475569; font-weight: 600; text-transform: uppercase;
+            font-size: 10px; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;
             white-space: nowrap;
         }
 
-        .table th {
-            background-color: #f1f5f9;
-            color: #475569;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 11px;
-            padding: 16px;
-            text-align: left;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
         .table td {
-            padding: 14px 16px;
-            border-bottom: 1px solid #f1f5f9;
-            color: var(--text-main);
+            padding: 12px; border-bottom: 1px solid #f1f5f9; color: var(--text-main);
         }
 
+        .table td.nowrap { white-space: nowrap; }
         .table tr:last-child td { border-bottom: none; }
         .table tr:hover { background-color: #f8fafc; }
 
-        /* Badges de Status */
-        .badge {
-            padding: 4px 10px;
-            border-radius: 99px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
+        .badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; display: inline-block;}
         .badge-error { background: #fee2e2; color: #b91c1c; }
         .badge-warning { background: #fef3c7; color: #b45309; }
 
-        .footer {
-            background-color: #f8fafc;
-            color: var(--text-muted);
-            padding: 25px;
-            text-align: center;
-            font-size: 12px;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        @media (max-width: 600px) {
-            .dashboard { grid-template-columns: 1fr; }
-        }
+        .footer { background-color: #f8fafc; color: var(--text-muted); padding: 25px; text-align: center; font-size: 12px; border-top: 1px solid #e2e8f0; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h1>Relatório de Auditoria de Pedidos</h1>
-        <p>Arquivo: <strong>{{NOME_ARQUIVO}}</strong></p>
+        <h1>Relatório de Integração de Pedidos</h1>
+        <p>Arquivo processado: <strong>{{NOME_ARQUIVO}}</strong></p>
     </div>
 
     <div class="content">
@@ -198,26 +114,29 @@
             </div>
             <div class="card card-error">
                 <span class="card-value" style="color: var(--error);">{{ERRO_COUNT}}</span>
-                <span class="card-label">Bloqueados</span>
+                <span class="card-label">Bloqueios Críticos</span>
             </div>
             <div class="card card-warning">
                 <span class="card-value" style="color: var(--warning);">{{AVISO_COUNT}}</span>
-                <span class="card-label">Alertas de Prazo</span>
+                <span class="card-label">Alertas Databook</span>
             </div>
         </div>
 
-        <div class="section-title error">Detalhamento de Divergências (Bloqueios)</div>
+        <div class="section-title error">Detalhamento de Divergências (Não Atualizados)</div>
         <div class="table-container">
             <table class="table">
                 <thead>
                 <tr>
-                    <th>Pedido HDN</th>
-                    <th>Pedido KSB</th>
+                    <th>Ped HDN</th>
+                    <th>Ped KSB</th>
                     <th>Linha</th>
-                    <th>Material</th>
-                    <th>Emissão OV</th>
+                    <th>Referência</th>
+                    <th>Cód. Sankhya</th> <th>Material</th>
+                    <th>Qtd</th>
+                    <th>Vlr Unit.</th>
+                    <th>Emissão</th>
                     <th>Reprogramada</th>
-                    <th>Motivo Bloqueio</th>
+                    <th>Motivo / Alerta</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -226,18 +145,21 @@
             </table>
         </div>
 
-        <div class="section-title warning">Avisos: Prazo Databook Excedido (Atualizados no ERP)</div>
+        <div class="section-title warning">Avisos: Prazo Excedido (Atualizados no ERP)</div>
         <div class="table-container">
             <table class="table">
                 <thead>
                 <tr>
-                    <th>Pedido HDN</th>
-                    <th>Pedido KSB</th>
+                    <th>Ped HDN</th>
+                    <th>Ped KSB</th>
                     <th>Linha</th>
-                    <th>Material</th>
-                    <th>Emissão OV</th>
+                    <th>Referência</th>
+                    <th>Cód. Sankhya</th> <th>Material</th>
+                    <th>Qtd</th>
+                    <th>Vlr Unit.</th>
+                    <th>Emissão</th>
                     <th>Reprogramada</th>
-                    <th>Alerta Databook</th>
+                    <th>Motivo / Alerta</th>
                 </tr>
                 </thead>
                 <tbody>

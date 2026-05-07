@@ -12,7 +12,6 @@ public class Main {
         System.out.println("=========================================");
 
         Properties props = new Properties();
-        // O Java vai procurar o arquivo na mesma pasta do .jar
         File arquivoConf = new File("integrador.conf");
 
         if (arquivoConf.exists()) {
@@ -29,22 +28,29 @@ public class Main {
             System.exit(1);
         }
 
-        // Validação básica para garantir que o .conf não está vazio
+        // --- VALIDAÇÃO DAS CONFIGURAÇÕES ---
         String urlSankhya  = props.getProperty("sankhya.url");
         String userSankhya = props.getProperty("sankhya.usuario");
         String idPendentes = props.getProperty("drive.pendentes");
         String tempoEspera = props.getProperty("tempo.espera", "30");
 
-        if (urlSankhya == null || userSankhya == null || idPendentes == null) {
+        // NOVO: Captura o caminho do JSON definido no .conf
+        String caminhoCredentials = props.getProperty("drive.credentials.path");
+
+        // Atualizamos a validação para incluir o caminho das credenciais
+        if (urlSankhya == null || userSankhya == null || idPendentes == null || caminhoCredentials == null) {
             System.err.println("[ERRO] Faltam configuracoes obrigatorias no integrador.conf!");
+            System.err.println("Verifique: sankhya.url, sankhya.usuario, drive.pendentes e drive.credentials.path");
             System.exit(1);
         }
 
         System.out.println("[INFO] Servidor: " + urlSankhya);
         System.out.println("[INFO] Monitorando a cada " + tempoEspera + " segundos.");
+        System.out.println("[INFO] Credenciais Google: " + caminhoCredentials);
 
-        // INICIA O SERVIÇO PASSANDO O PACOTE "PROPS" INTEIRO
-        MonitorPastas monitor = new MonitorPastas(props);
+        // INICIA O SERVIÇO PASSANDO O PROPS E O CAMINHO EXTERNO DO JSON
+        // Certifique-se que o construtor do MonitorPastas aceita esses dois argumentos
+        MonitorPastas monitor = new MonitorPastas(props, caminhoCredentials);
         monitor.iniciarMonitorizacao();
     }
 }
