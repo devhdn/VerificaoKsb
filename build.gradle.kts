@@ -11,8 +11,7 @@ repositories {
 }
 
 dependencies {
-    // Biblioteca para ler ficheiros CSV
-    implementation("com.opencsv:opencsv:5.9")
+
     // Bibliotecas para ler ficheiros Excel nativos (.xlsx)
     implementation("org.apache.poi:poi-ooxml:5.2.5")
     // Biblioteca para manipular JSON (para a API do Sankhya)
